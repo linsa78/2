@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>История — КТ 2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #000000; /* Черный фон */
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* --- HEADER --- */
+  header {
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: sticky; top: 0; z-index: 100;
+  }
+  header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+  .tabs { display: flex; gap: 6px; background: rgba(255,255,255,0.1); padding: 4px; border-radius: 20px; }
+  .tab {
+    padding: 6px 14px; border-radius: 16px; border: none; cursor: pointer;
+    background: transparent; color: #aaa; font-size: 13px; font-weight: 600;
+    transition: .2s;
+  }
+  .tab.active { background: #1a56db; color: #fff; box-shadow: 0 2px 10px rgba(26,86,219,0.4); }
+
+  .screen { display: none; flex: 1; padding: 18px; max-width: 800px; margin: 0 auto; width: 100%; }
+  .screen.active { display: block; }
+
+  /* --- ЭКРАН УЧЁБЫ --- */
+  .ruler-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .ruler-btn {
+    padding: 8px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+    background: #111; color: #aaa; cursor: pointer; font-size: 13px;
+    font-weight: 600; transition: .2s; text-align: left;
+  }
+  .ruler-btn:hover { background: #222; }
+  .ruler-btn.active { background: #1a56db; color: #fff; border-color: #1a56db; }
+  .ruler-btn.empty { opacity: .5; }
+  .ruler-btn .count { font-size: 11px; opacity: .7; font-weight: 400; display: block; margin-top: 2px; }
+
+  .study-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .study-header h2 { font-size: 18px; color: #fff; font-weight: 700; }
+  .hide-btn {
+    padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15);
+    background: #111; color: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .hide-btn.on { background: #e94560; border-color: #e94560; }
+
+  .point {
+    background: #111; border-radius: 16px; padding: 16px 18px; margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  /* Подпункт в учебе - цветной */
+  .point .q { font-weight: 700; font-size: 15px; margin-bottom: 8px; color: #4db8ff; }
+  .point .a { font-size: 14px; line-height: 1.55; color: #ccc; white-space: pre-line; }
+  .point .a.hidden { display: none; }
+  .point .empty-note { font-style: italic; color: #666; font-size: 13px; }
+
+  /* --- ЭКРАН КАРТОЧЕК --- */
+  #cardScreen { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 18px; }
+  #cardScreen.active { display: flex; }
+
+  .progress-bar {
+    width: 100%; max-width: 400px; height: 6px; background: rgba(255,255,255,0.15);
+    border-radius: 4px; overflow: hidden; margin-bottom: 8px;
+  }
+  .progress-fill { height: 100%; background: linear-gradient(90deg,#1a56db,#e94560); width: 0%; transition: width .3s; }
+  .counter { font-size: 12px; color: #aaa; margin-bottom: 22px; letter-spacing: 0.5px; }
+
+  .card-wrap { width: 100%; max-width: 400px; perspective: 1200px; display: flex; justify-content: center; }
+  .card {
+    position: relative; background: rgba(26, 86, 219, 0.85); /* Синяя карточка */
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-radius: 24px; padding: 24px 20px; min-height: 420px; width: 100%;
+    display: flex; flex-direction: column; justify-content: space-between;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.15);
+    touch-action: pan-y; user-select: none; cursor: grab;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  .card.dragging { transition: none; cursor: grabbing; }
+  
+  /* Верхняя часть карточки (Вопрос) */
+  .card-top { flex: 1; display: flex; flex-direction: column; }
+  .card .ruler-tag {
+    display: inline-block; background: rgba(255,255,255,0.2); color: #fff; font-size: 12px;
+    font-weight: 700; padding: 5px 12px; border-radius: 20px; margin-bottom: 12px;
+    align-self: flex-start; backdrop-filter: blur(4px);
+  }
+  .card .question-text { font-size: 20px; font-weight: 700; line-height: 1.3; color: #fff; margin-bottom: 12px; }
+  
+  /* Список подпунктов на лицевой стороне */
+  .card .q-points-list {
+    font-size: 15px; line-height: 1.5; color: #e2e8f0;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .card .q-points-list div { display: flex; gap: 6px; align-items: baseline; }
+  .card .q-points-list span.num { font-weight: 700; color: #fff; opacity: 0.7; }
+  
+  /* Ответ на обороте */
+  .card .answer-text {
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.2);
+    font-size: 14px; line-height: 1.55; color: #e2e8f0;
+    display: none; max-height: 320px; overflow-y: auto; padding-right: 4px;
+  }
+  .card .answer-text::-webkit-scrollbar { width: 4px; }
+  .card .answer-text::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; }
+  .card .answer-text.show { display: block; }
+  .card .answer-text .ans-q { font-weight: 700; color: #4db8ff; margin-top: 12px; margin-bottom: 4px; display: block; }
+  .card .answer-text .ans-a { color: #d1d9e6; white-space: pre-line; display: block; margin-bottom: 4px; }
+  .card .answer-text .empty-note { font-style: italic; color: rgba(255,255,255,0.5); }
+
+  /* Кнопка */
+  .show-btn {
+    margin-top: 20px; padding: 14px 24px; border-radius: 16px; border: none;
+    background: #fff; color: #1a56db; font-size: 15px; font-weight: 700;
+    cursor: pointer; align-self: flex-start; width: 100%;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: transform 0.1s;
+  }
+  .show-btn:active { transform: scale(0.97); }
+
+  .hint-swipe { margin-top: 20px; font-size: 12px; color: #888; text-align: center; }
+  .hint-swipe b { color: #e94560; }
+
+  .done-screen { text-align: center; padding: 30px; background: #111; border-radius: 24px; width: 100%; border: 1px solid rgba(255,255,255,0.1); }
+  .done-screen h2 { font-size: 24px; color: #fff; margin-bottom: 12px; }
+  .done-screen p { font-size: 16px; color: #aaa; margin-bottom: 6px; }
+  .restart-btn {
+    margin-top: 22px; padding: 12px 28px; border-radius: 12px; border: none;
+    background: #1a56db; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📚 История — КТ 2</h1>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('study')">Учить</button>
+    <button class="tab" onclick="switchTab('cards')">Карточки</button>
+  </div>
+</header>
+
+<!-- ЭКРАН 1: УЧЁБА -->
+<div id="studyScreen" class="screen active">
+  <div class="ruler-list" id="rulerList"></div>
+  <div id="studyContent"></div>
+</div>
+
+<!-- ЭКРАН 2: КАРТОЧКИ -->
+<div id="cardScreen" class="screen">
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="counter" id="counter">0 / 0</div>
+  <div class="card-wrap" id="cardWrap"></div>
+  <div class="hint-swipe">Свайп <b>влево</b> — не знал · Свайп <b>вправо</b> — знал</div>
+</div>
+
+<script>
+/* ============================================================
+   ДАННЫЕ
+   ============================================================ */
+const DATA = [
+  {
+    ruler: "Михаил Федорович Романов",
+    points: [
+      { q: "I. 1613г.", a: "Земский собор, избрание Михаила на царство." },
+      { q: "II. 1619г.", a: "Созыв Земского собора.\n1. Ввёл новое налогообложение.\n2. Отменил чрезвычайные налоги военного времени.\n3. Разорённым уездам предоставил льготы.\n4. Восстановил срок сыска беглых крестьян в 5 лет и запретил их переход от одного к другому." },
+      { q: "III. 1641г.", a: "Увеличение сыска беглых крестьян до 10 лет." },
+      { q: "IV. Смоленская война / причина, итог", a: "Причина: Сигизмунд III не признавал прав Михаила Федоровича и считал наследником своего сына Владислава.\nИтог: Отказываемся от всех завоёванных земель (Смоленские и Черниговские земли остаются за Польшей). Владислав IV отказывается от претензий на русский престол." }
+    ]
+  },
+  {
+    ruler: "Алексей Михайлович Романов",
+    points: [
+      { q: "I. 1653г.", a: "Торговый устав: замена многочисленных пошлин на 5% единый налог, для иностранцев 6–7%." },
+      { q: "II. 1667г.", a: "Новоторговый устав (автор А.Л. Ордин-Нащокин): двойная пошлина от купцов; только оптовая торговля; иностранным купцам можно продавать товары только русским." },
+      { q: "III. Протекционизм", a: "Экономическая политика государства, направленная на поддержку отечественного производства путём ограничения ввоза зарубежных товаров." },
+      { q: "IV. 1649г.", a: "Соборное уложение: оформление крестьянства; прикрепление посадских людей к посаду; штраф за сокрытие крестьянина; запрет критики церкви и царя; уменьшение разницы между вотчиной и поместьем; ликвидация белых слобод." },
+      { q: "V. 1686г.", a: "«Вечный мир»: подтверждаются условия Андрусовского перемирия + присоединение к «Священной лиге» (Австрия, РП, Венеция) с целью борьбы с Османской империей." },
+      { q: "VI. Русско-турецкая война (итог)", a: "Русско-турецкая война 1676–1681 гг. Итог — признание присоединения Левобережной Украины к России." }
+    ]
+  },
+  {
+    ruler: "Бунты и восстания XVII века",
+    points: [
+      { q: "I. Причины", a: "1. Закрепощение крестьян.\n2. Высокие налоги.\n3. Церковный раскол.\n4. Ограничение казацкой вольности." },
+      { q: "II. Перечислить восстания", a: "• Соляной бунт 1648 г. — соль сделали дорогой. Народ разгромил дома бояр. Итог: подавили, приняли Соборное уложение 1649 г.\n• Хлебный бунт 1650 г. — хлеб дорожал. В Пскове и Новгороде народ захватил власть. Итог: подавили, зачинщиков сослали.\n• Восстание Степана Разина 1667–1671 гг. — закрепощение, налоги, ограничение казачьей воли. Захват Царицына, Астрахани, Самары. Итог: разбиты под Симбирском, Разина казнили." }
+    ]
+  },
+  {
+    ruler: "Федор Алексеевич Романов",
+    points: [
+      { q: "I. 1682г.", a: "Отмена местничества." },
+      { q: "II. 1678г.", a: "Новая система налогообложения (не с земли, а с двора).\nУпразднён приказ Тайных дел." }
+    ]
+  },
+  {
+    ruler: "Софья Алексеевна Романова",
+    points: [
+      { q: "I. 1682г.", a: "Восстание стрельцов" },
+      { q: "II. 1685г.", a: "«12 статей» — закон, определяющий наказания для старообрядцев (раскольников)." },
+      { q: "III. 1687г.", a: "Открытие Славяно-греко-латинской академии." }
+    ]
+  },
+  {
+    ruler: "Пётр I",
+    points: [
+      { q: "I. 1722г.", a: "Указ о престолонаследии (император сам выбирает наследника); введение Табели о рангах." },
+      { q: "II. 1698г.", a: "Стрелецкое восстание в Москве." },
+      { q: "III. 1703г.", a: "Основание Санкт-Петербурга; первая газета «Ведомости»." },
+      { q: "IV. 22 октября 1721г.", a: "Пётр I принял титул императора Всероссийского (Ништадтский мир)." },
+      { q: "V. Административные реформы", a: "1. 1699 г. — ликвидация Боярской думы.\n2. 1708 г. — образование губерний.\n3. 1711 г. — создание Сената.\n4. 1714 г. — Указ о единонаследии.\n5. 1718–1721 гг. — введение коллегий вместо приказов.\n6. 1722 г. — Указ о престолонаследии; Табель о рангах." },
+      { q: "VI. Военные реформы", a: "1. 1699–1705 гг. — введение рекрутской повинности.\n2. 1700 г. — организация гвардейских полков (Семёновский и Преображенский).\n3. 1716 г. — Воинский устав." },
+      { q: "VII. Духовные реформы", a: "1. С 1699 г. — Новый год 1 января.\n2. 1703 г. — первая газета «Ведомости».\n3. 1721 г. — «Духовный регламент»: отмена патриаршества, создание Синода." },
+      { q: "VIII. Бунты и восстания", a: "1. Астраханское (1705–1706) — новые порядки, налоги. Подавлено Шереметевым.\n2. Булавина на Дону (1707–1708) — сыск беглых, ущемление казачьей вольницы.\n3. Башкирское (1705–1711) — захват земель, поборы.\n4. Выступления старообрядцев — неприятие реформ.\n5. Бунты на мануфактурах — тяжёлый труд, приписка крестьян.\n6. Дело царевича Алексея (1716–1718)." },
+      { q: "IX. Северная война", a: "1700–1721 гг.\nИтог: Ништадтский мир 1721 г. Россия получила Лифляндию, Эстляндию, Ингерманландию, часть Карелии и выход к Балтийскому морю." }
+    ]
+  },
+  {
+    ruler: "Дворцовые перевороты",
+    points: [
+      { q: "I. Определение", a: "Период в истории России с 1725 по 1762 год, во время которого переход власти происходил благодаря придворным группировкам, гвардии или привилегированным дворянам." },
+      { q: "II. Причины", a: "1. Отсутствие завещания.\n2. Гибель царевича Алексея.\n3. Борьба различных дворянских группировок.\n4. Усиление роли гвардии." },
+      { q: "III. Хронология", a: "• Екатерина I (1725–1727) — жена Петра I.\n• Пётр II (1727–1730) — внук Петра I, сын царевича Алексея.\n• Анна Иоанновна (1730–1740) — племянница Петра I, дочь царя Ивана V.\n• Иван VI Антонович (1740–1741)\n• Елизавета Петровна (1741–1761) — дочь Петра I.\n• Пётр III (1761–1762) — внук Петра I, племянник Елизаветы Петровны." },
+      { q: "IV. Внешняя политика", a: "• Россия утвердилась в Прибалтике.\n• Расширение территории за счёт казахских земель и развития южных направлений (при Анне Иоанновне).\n• Россия не смогла получить выход к Чёрному морю." }
+    ]
+  },
+  {
+    ruler: "Екатерина II",
+    points: [
+      { q: "I. 1762г.", a: "Манифест о вольности дворянской.\n(также: начало правления Екатерины II «Великой», 1762–1796)." },
+      { q: "II. 1785г.", a: "Жалованные грамоты дворянству и городам." },
+      { q: "III. 1767г.", a: "Уложенная комиссия и «Наказ» комиссии для составления нового свода законов.\nЕкатерина II написала для неё «Наказ» по идеям Просвещения.\nКомиссия распущена, не создав уложения." },
+      { q: "IV. Восстание Пугачёва", a: "Причины:\n1. Усиление роли помещиков.\n2. Увеличение налогов.\n3. Тяжёлое положение заводских людей и приписных крестьян на мануфактурах.\n4. Ухудшение положения крестьян городов Поволжья и Приуралья.\n\nИтоги:\n1. Огромные человеческие потери.\n2. Положение крестьян не улучшилось.\n3. Ликвидированы претензии на трон.\n4. Ликвидирована казацкая вольница." },
+      { q: "V. 1774г.", a: "Кючук-Кайнарджийский мир (итог Русско-турецкой войны 1768–1774).\nРоссия получила выход к Чёрному морю, независимость Крыма от Турции." },
+      { q: "VI. 1783г.", a: "Присоединение Крыма к России.\nЗаключён Георгиевский трактат с Картли-Кахетией (Восточная Грузия перешла под протекторат России)." },
+      { q: "VII. Разделы Речи Посполитой", a: "Три раздела Речи Посполитой (1772, 1793, 1795): государство исчезло.\nРоссия получила: восточную часть Белоруссии, Правобережную Украину, Литву, Курляндию, Волынь." }
+    ]
+  },
+  {
+    ruler: "Павел I",
+    points: [
+      { q: "I. 1797г. (престол)", a: "Акт о престолонаследии (приоритет мужчин, только по старшинству и только по прямой линии).\n(Павел I — сын Петра III и Екатерины II, отец будущих императоров Александра I и Николая I; правил 1796–1801)." },
+      { q: "II. «Разжалованная грамота»", a: "• Запрет свободного перехода из армейской службы в гражданскую.\n• Запрет обращаться с жалобами монарху.\n• Установление налога с дворян.\n• Введение телесных наказаний.\n• Введение обязательной военной службы." },
+      { q: "III. Манифест о трёхдневной барщине", a: "• Ограничение барщины тремя днями в неделю.\n• Разрешение жаловаться на помещика.\n• 1797 г. — запрет продавать крестьян без земли.\n• Отмена рекрутского набора на некоторые годы.\n• Запрет привлекать крестьян к работе в праздники." },
+      { q: "IV. 1801г.", a: "Павел I пошёл на сближение с наполеоновской Францией и начал подготовку военного похода в Индию.\nГосударственный переворот 1801 г. привёл к свержению Павла I и предотвратил поход и войну с Великобританией." },
+      { q: "V. Заговор против Павла", a: "• П.А. Пален — петербургский военный губернатор.\n• П.А. Зубов — фаворит Екатерины II.\n• П.Л. Беннигсен — генерал." }
+    ]
+  },
+  {
+    ruler: "Александр I (1801–1825)",
+    points: [
+      { q: "I. 1801г.", a: "Восстановил жалованные грамоты городам и дворянству.\nЛиквидация монопольного права дворян на владение землёй.\n1801–1810 — Непременный совет: разработка и обсуждение законопроектов; управление финансами; исполнение обязанностей императора в случае его отсутствия." },
+      { q: "II. 1802г.", a: "Указ о создании министерств." },
+      { q: "III. 1803г.", a: "Указ «о вольных хлебопашцах»: помещик может отпустить крестьянина за выкуп с землёй.\nРеформа народного просвещения (доступны для низших слоёв)." },
+      { q: "IV. 1809г.", a: "Отменён указ о праве помещиков ссылать крестьян в Сибирь.\n«Введение к уложению государственных законов» М.М. Сперанского (разделение властей)." },
+      { q: "V. 1811г.", a: "Основание Императорского Царскосельского лицея; новые университеты в Петербурге, Дерпте, Казани, Харькове." },
+      { q: "VI. Военные поселения", a: "1810–1857гг. Цель: уменьшение расходов на армию через соединение хозяйственной и военной службы (А.А. Аракчеев)." },
+      { q: "VII. 1815г.", a: "Отмена крепостного права в Прибалтике без земли (1816 — Эстляндия/Эстония; 1817–1819 — Курляндия/Латвия, Лифляндия)." },
+      { q: "VIII. Реформы Сперанского", a: "• 1809 г. — «Введение к уложению государственных законов». Разделение властей: судебная — Сенат; законодательная — Гос. Дума; исполнительная — Министерства.\n• 1810 г. — образование Государственного совета (законосовещательный орган: рассматривает законопроекты и работу министерств)." },
+      { q: "IX. Причины свёртывания реформ", a: "• нерешительность Александра\n• отсутствие поддержки со стороны консервативного дворянства\n• не было объективных предпосылок, страна не была готова к реформам" },
+      { q: "X. Проекты отмены КП", a: "• А.А. Аракчеев, Д.А. Гурьев" },
+      { q: "XI. Присоединённые территории", a: "• Финляндия, Северный Азербайджан и Дагестан" }
+    ]
+  },
+  {
+    ruler: "Отечественная война 1812 года",
+    points: [
+      { q: "I. Стороны", a: "Россия, Франция" },
+      { q: "II. Причины", a: "• Россия препятствует Наполеону на пути к господству в Европе\n• Александр стремится к реваншу под Аустерлицем\n• Наполеон поддержал поляков в стремлении независимости, что не устраивало Россию\n• Неудачная попытка Наполеона стараться к Анне\n• Наполеон объявил Александра в заговоре против своего отца" },
+      { q: "III. Главнокомандующие", a: "" },
+      { q: "IV. 26 августа", a: "" },
+      { q: "V. 1 сентября", a: "" },
+      { q: "VI. 25 декабря", a: "" }
+    ]
+  },
+  {
+    ruler: "Николай I",
+    points: [
+      { q: "I. Финансовая реформа Канкрина", a: "" },
+      { q: "II. 1833г.", a: "" },
+      { q: "III. Реформа Киселёва", a: "" },
+      { q: "IV. Промышленный переворот", a: "" },
+      { q: "V. Кавказская и Крымская войны", a: "" }
+    ]
+  },
+  {
+    ruler: "Александр II",
+    points: [
+      { q: "I. 1861г.", a: "" },
+      { q: "II. 1864г.", a: "" },
+      { q: "III. 1861–1874гг.", a: "" },
+      { q: "IV. 1871г.", a: "" }
+    ]
+  },
+  {
+    ruler: "Александр III",
+    points: [
+      { q: "I. 1881г.", a: "" },
+      { q: "II. 1887г.", a: "" },
+      { q: "III. 1891г.", a: "" },
+      { q: "IV. Внешняя политика", a: "" }
+    ]
+  },
+  {
+    ruler: "Николай II",
+    points: [
+      { q: "I. 1904–1905гг.", a: "" },
+      { q: "II. 1905–1907гг.", a: "" },
+      { q: "III. 1914–1918гг.", a: "" },
+      { q: "IV. 1917 г.", a: "" },
+      { q: "V. 2 марта 1917г.", a: "" }
+    ]
+  }
+];
+
+/* ============================================================
+   ЛОГИКА
+   ============================================================ */
+
+let currentRulerIdx = 0;
+let hideAnswers = false;
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('studyScreen').classList.toggle('active', name === 'study');
+  document.getElementById('cardScreen').classList.toggle('active', name === 'cards');
+  if (name === 'cards') startCards();
+}
+
+function renderRulerList() {
+  const list = document.getElementById('rulerList');
+  list.innerHTML = '';
+  DATA.forEach((r, i) => {
+    const filled = r.points.filter(p => p.a.trim() !== '').length;
+    const btn = document.createElement('button');
+    btn.className = 'ruler-btn' + (i === currentRulerIdx ? ' active' : '') + (filled === 0 ? ' empty' : '');
+    btn.innerHTML = r.ruler + '<span class="count">' + filled + ' / ' + r.points.length + '</span>';
+    btn.onclick = () => { currentRulerIdx = i; renderRulerList(); renderStudy(); };
+    list.appendChild(btn);
+  });
+}
+
+function renderStudy() {
+  const r = DATA[currentRulerIdx];
+  const content = document.getElementById('studyContent');
+  let html = '<div class="study-header"><h2>' + r.ruler + '</h2>';
+  html += '<button class="hide-btn' + (hideAnswers ? ' on' : '') + '" onclick="toggleHide()">' + (hideAnswers ? 'Показать ответы' : 'Скрыть ответы') + '</button></div>';
+  r.points.forEach(p => {
+    html += '<div class="point"><div class="q">' + p.q + '</div>';
+    if (p.a.trim() === '') {
+      html += '<div class="a"><span class="empty-note">(нет данных — допиши позже)</span></div>';
+    } else {
+      html += '<div class="a' + (hideAnswers ? ' hidden' : '') + '">' + escapeHtml(p.a) + '</div>';
+    }
+    html += '</div>';
+  });
+  content.innerHTML = html;
+}
+
+function toggleHide() {
+  hideAnswers = !hideAnswers;
+  renderStudy();
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---------- ЭКРАН КАРТОЧЕК ----------
+let deck = [];        
+let totalCards = 0;   
+let knownCount = 0;   
+let currentCard = null;
+
+function buildFullDeck() {
+  const arr = [];
+  DATA.forEach((r, ri) => {
+    // Не добавляем в карточки полностью пустых правителей
+    const hasAnswers = r.points.some(p => p.a.trim() !== '');
+    if (hasAnswers) {
+      arr.push({ ruler: r.ruler, points: r.points });
+    }
+  });
+  return arr;
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startCards() {
+  deck = shuffle(buildFullDeck());
+  totalCards = deck.length;
+  knownCount = 0;
+  currentCard = null;
+  renderCard();
+}
+
+function renderCard() {
+  const wrap = document.getElementById('cardWrap');
+  const counter = document.getElementById('counter');
+  const fill = document.getElementById('progressFill');
+
+  counter.textContent = (totalCards - deck.length) + ' / ' + totalCards + '   ·   знал: ' + knownCount;
+  fill.style.width = (totalCards ? ((totalCards - deck.length) / totalCards * 100) : 0) + '%';
+
+  if (deck.length === 0) {
+    wrap.innerHTML = '<div class="done-screen"><h2>🎉 Готово!</h2><p>Ты прошёл все карточки.</p><p>Знал: <b>' + knownCount + '</b> из <b>' + totalCards + '</b></p><button class="restart-btn" onclick="startCards()">Перемешать заново</button></div>';
+    return;
+  }
+
+  currentCard = deck[0];
+
+  // Формируем список подпунктов для ЛИЦЕВОЙ стороны
+  let questionPointsHtml = '';
+  currentCard.points.forEach(p => {
+    questionPointsHtml += `<div><span class="num">•</span> ${p.q}</div>`;
+  });
+
+  // Формируем ответы для ОБОРОТНОЙ стороны
+  let answersHtml = '';
+  currentCard.points.forEach(p => {
+    answersHtml += `<div class="ans-q">${p.q}</div>`;
+    if (p.a.trim() === '') {
+      answersHtml += `<div class="ans-a"><span class="empty-note">(нет данных)</span></div>`;
+    } else {
+      answersHtml += `<div class="ans-a">${escapeHtml(p.a)}</div>`;
+    }
+  });
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-top">
+      <span class="ruler-tag">${currentCard.ruler}</span>
+      <div class="q-points-list" id="qPointsList">
+        ${questionPointsHtml}
+      </div>
+    </div>
+    <div class="answer-text" id="answerText">
+      ${answersHtml}
+    </div>
+    <button class="show-btn" id="showBtn">Показать ответ</button>
+  `;
+  wrap.innerHTML = '';
+  wrap.appendChild(card);
+
+  document.getElementById('showBtn').onclick = (e) => {
+    e.stopPropagation();
+    document.getElementById('qPointsList').style.display = 'none'; // прячем лицо
+    document.getElementById('answerText').classList.add('show');
+    document.getElementById('showBtn').style.display = 'none';
+  };
+
+  attachSwipe(card);
+}
+
+function attachSwipe(card) {
+  let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, locked = null;
+
+  const onStart = (x, y) => {
+    startX = x; startY = y; dx = 0; dy = 0; dragging = true; locked = null;
+    card.classList.add('dragging');
+  };
+  const onMove = (x, y) => {
+    if (!dragging) return;
+    dx = x - startX;
+    dy = y - startY;
+    if (locked === null) {
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      }
+    }
+    if (locked === 'x') {
+      card.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx / 20) + 'deg)';
+      card.style.opacity = Math.max(0.4, 1 - Math.abs(dx) / 400);
+    }
+  };
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    card.classList.remove('dragging');
+    if (locked === 'x' && Math.abs(dx) > 80) {
+      const know = dx > 0;
+      card.style.transform = 'translateX(' + (know ? 600 : -600) + 'px) rotate(' + (know ? 30 : -30) + 'deg)';
+      card.style.opacity = '0';
+      setTimeout(() => {
+        const done = deck.shift();
+        if (know) {
+          knownCount++;
+        } else {
+          deck.push(done); // вернуть в конец
+        }
+        renderCard();
+      }, 250);
+    } else {
+      card.style.transform = '';
+      card.style.opacity = '';
+    }
+  };
+
+  card.addEventListener('mousedown', e => { if (e.target.closest('.show-btn')) return; onStart(e.clientX, e.clientY); e.preventDefault(); });
+  window.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+  window.addEventListener('mouseup', onEnd);
+  
+  card.addEventListener('touchstart', e => {
+    if (e.target.closest('.show-btn')) return;
+    if (e.target.closest('.answer-text')) {
+      if (document.getElementById('answerText').classList.contains('show')) return;
+    }
+    onStart(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+
+  card.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const x = e.touches[0].clientX, y = e.touches[0].clientY;
+    if (locked === null) {
+      const ddx = x - startX, ddy = y - startY;
+      if (Math.abs(ddx) > 8 || Math.abs(ddy) > 8) {
+        locked = Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y';
+      }
+    }
+    if (locked === 'x') {
+      e.preventDefault();
+    }
+    onMove(x, y);
+  }, { passive: false });
+
+  card.addEventListener('touchend', onEnd);
+}
+
+// ---------- СТАРТ ----------
+renderRulerList();
+renderStudy();
+</script>
+</body>
+</html>
